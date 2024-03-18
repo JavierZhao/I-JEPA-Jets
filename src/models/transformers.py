@@ -10,6 +10,40 @@ from src.masks.utils import apply_masks
 
 # TODO positional embedding
 
+def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
+    """
+    embed_dim: output dimension for each position: (D)
+    grid: [eta_grid, phi_grid]: (S, S)
+    """
+    assert embed_dim % 2 == 0
+
+    # use half of dimensions to encode grid_h
+    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (S, D/2)
+    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (S, D/2)
+
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (S, D)
+    return emb
+
+def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
+    """
+    embed_dim: output dimension for each position
+    pos: a list of subjets positions to be encoded: size (S,)
+    out: (S, D)
+    """
+    assert embed_dim % 2 == 0
+    omega = np.arange(embed_dim // 2, dtype=float)
+    omega /= embed_dim / 2.
+    omega = 1. / 10000**omega   # (D/2,)
+
+    pos = pos.reshape(-1)   # (S,)
+    out = np.einsum('m,d->md', pos, omega)   # (S, D/2), outer product
+
+    emb_sin = np.sin(out)  # (S, D/2)
+    emb_cos = np.cos(out)  # (S, D/2)
+
+    emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (S, D)
+    return emb
+
 def drop_path(x, drop_prob: float = 0., training: bool = False):
     if drop_prob == 0. or not training:
         return x
